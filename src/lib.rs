@@ -5,7 +5,20 @@
 /// This is especially useful for quickly mapping between two enums,
 /// but this works for any two types and any patterns.
 ///
-/// Example:
+/// # Usage
+/// ```text
+/// bijection!(Foo, Bar, {
+///     Foo::A => Bar::X,
+///     Foo::B(b) => Bar::Y(b),
+///     Foo::C { x } => Bar::Z { x },
+///     // ...
+/// });
+/// ```
+/// The bijection expressions are very similar to `match` branches.
+/// Because of the two-way nature of bijection, both sides must be valid patterns (without alternates)
+/// and expressions - that is, both `Foo::A => Bar::X` and `Bar::X => Foo::A` must be valid in a match expression.
+///
+/// # Examples
 /// ```rust
 /// use biject::bijection;
 ///
@@ -32,7 +45,84 @@
 /// assert_eq!(PointEnum::from(Point { x: 1, y: 1 }), PointEnum::OneOne);
 /// assert_eq!(PointEnum::from(Point { x: 5, y: 10 }), PointEnum::Other { x: 5, y: 10 });
 /// assert_eq!(PointEnum::from(Point { x: 20, y: -20 }), PointEnum::Other { x: 20, y: -20 });
+///
+/// assert_eq!(Point::from(PointEnum::Zero), Point { x: 0, y: 0 });
+/// assert_eq!(Point::from(PointEnum::OneOne), Point { x: 1, y: 1 });
+/// assert_eq!(Point::from(PointEnum::Other { x: 5, y: 10 }), Point { x: 5, y: 10 });
+/// assert_eq!(Point::from(PointEnum::Other { x: 20, y: -20 }), Point { x: 20, y: -20 });
 /// ```
+///
+/// ```rust
+/// use biject::bijection;
+/// #[derive(Debug, PartialEq, Clone)]
+/// enum Tristate {
+///     Neutral,
+///     Positive,
+///     Negative,
+/// }
+///
+/// bijection!(Option<bool>, Tristate, {
+///             None => Tristate::Neutral,
+///             Some(true) => Tristate::Positive,
+///             Some(false) => Tristate::Negative,
+///         });
+///
+/// assert_eq!(Tristate::from(None::<bool>), Tristate::Neutral);
+/// assert_eq!(Tristate::from(Some(true)), Tristate::Positive);
+/// assert_eq!(Tristate::from(Some(false)), Tristate::Negative);
+///
+/// assert_eq!(Option::<bool>::from(Tristate::Neutral), None::<bool>);
+/// assert_eq!(Option::<bool>::from(Tristate::Positive), Some(true));
+/// assert_eq!(Option::<bool>::from(Tristate::Negative), Some(false));
+/// ```
+///
+/// # Caveats
+///
+/// ## Unreachable patterns
+/// By itself, the macro does not enforce bijection
+/// ```rust
+/// # use biject::bijection;
+/// # #[derive(Debug, PartialEq, Clone)]
+/// # struct Foo(i32);
+///
+/// # #[derive(Debug, PartialEq, Clone)]
+/// # struct Bar(i32);
+///
+///
+/// bijection!(Foo, Bar, {
+///     Foo(0) => Bar(0),
+///     Foo(1) => Bar(0), // Bar(0) is unreachable!
+///     Foo(1) => Bar(1), // Foo(1) is unreachable!
+///     Foo(x) => Bar(x),
+/// });
+/// ```
+/// Luckily, this will still cause the macro to emit `unreachable_patterns` warnings,
+/// and even highlight the problematic patterns for you.
+///
+/// You may wrap the macro in a block (or a module) and annotate it with `#[deny(unreachable_patterns)]`.
+///
+/// ## Bijection branches
+/// The bijection branches are structured to look like `match` branches, but unlike the latter,
+/// or-patterns (or any ambiguous patterns) are disallowed.
+/// ```rust
+/// # use biject::bijection;
+/// # #[derive(Debug, PartialEq, Clone)]
+/// # struct Foo(i32);
+///
+/// # #[derive(Debug, PartialEq, Clone)]
+/// # struct Bar(i32);
+///
+/// bijection!(Foo, Bar, {
+///     // No or-pattern! That would be like writing Bar(0) => Foo(0) | Foo(1)
+///     Foo(0) | Foo(1) => Bar(0),
+///     // Inner or-patterns currently pass compilation,
+///     // and unexpectedly produce a bitwise or instead!
+///     Foo(2 | 3) => Bar(1),
+///     Foo(x) => Bar(x),
+/// });
+/// ```
+/// Using an inner or-pattern may currently compile successfully, but it (incorrectly) produces
+/// a bitwise or instead.
 #[macro_export]
 macro_rules! bijection {
     // Final construction of the From impls
@@ -367,7 +457,7 @@ mod tests {
     }
 
     #[test]
-    fn not_really_bijective() {
+    fn unreachable_patterns() {
         #[derive(Debug, PartialEq, Clone)]
         struct Foo(i32);
 
@@ -381,7 +471,7 @@ mod tests {
             bijection!(Foo, Bar, {
                 Foo(0) => Bar(0),
                 Foo(1) => Bar(0),
-                Foo(2) => Bar(0),
+                Foo(1) => Bar(1),
                 Foo(x) => Bar(x),
             });
         }
@@ -391,9 +481,7 @@ mod tests {
 
         assert_eq!(Bar::from(Foo(1)), Bar(0));
         assert_ne!(Foo::from(Bar(1)), Foo(0));
-
-        assert_eq!(Bar::from(Foo(2)), Bar(0));
-        assert_ne!(Foo::from(Bar(2)), Foo(0));
+        assert_eq!(Foo::from(Bar(1)), Foo(1));
 
         assert_eq!(Bar::from(Foo(3)), Bar(3));
         assert_eq!(Foo::from(Bar(3)), Foo(3));
@@ -418,6 +506,9 @@ mod tests {
         test_bijection_eq(Tristate::Positive, Some(true));
         test_bijection_eq(Tristate::Negative, Some(false));
     }
+
+    // TODO: Make it fail on inner or-patterns (which makes it behave like a bitwise or!!!)
+    // Example Foo(2 | 3) => Bar(1),
 
     // // Used for testing compiler errors etc.
     // #[test]
