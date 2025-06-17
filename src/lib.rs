@@ -1,5 +1,3 @@
-#![feature(trace_macros)]
-
 macro_rules! bijection {
     // Final construction of the From impls
     (@
@@ -115,9 +113,7 @@ mod tests {
         #[derive(Debug, PartialEq, Clone)]
         enum Bar {}
 
-        trace_macros!(true);
         bijection!(Foo, Bar, {});
-        trace_macros!(false);
     }
 
     #[test]
@@ -132,11 +128,9 @@ mod tests {
             X,
         }
 
-        trace_macros!(true);
         bijection!(Foo, Bar, {
             Foo::A => Bar::X,
         });
-        trace_macros!(false);
 
         test_bijection_eq(Foo::A, Bar::X);
     }
@@ -155,12 +149,10 @@ mod tests {
             Y,
         }
 
-        trace_macros!(true);
         bijection!(Foo, Bar, {
             Foo::A => Bar::X,
             Foo::B => Bar::Y,
         });
-        trace_macros!(false);
 
         test_bijection_eq(Foo::A, Bar::X);
         test_bijection_eq(Foo::B, Bar::Y);
@@ -180,11 +172,9 @@ mod tests {
             x: i32,
         }
 
-        trace_macros!(true);
         bijection!(Point, PointFlipped, {
             Point { x, y } => PointFlipped { y: x, x: y }
         });
-        trace_macros!(false);
 
         test_bijection_eq(Point { x: 5, y: 10 }, PointFlipped { x: 10, y: 5 });
         test_bijection_eq(Point { x: 20, y: -20 }, PointFlipped { x: -20, y: 20 });
@@ -205,13 +195,11 @@ mod tests {
             Other { x: i32, y: i32 },
         }
 
-        trace_macros!(true);
         bijection!(Point, PointEnum, {
             Point { x: 0, y: 0 } => PointEnum::Zero,
             Point { x: 1, y: 1 } => PointEnum::OneOne,
             Point { x, y } => PointEnum::Other { x, y },
         });
-        trace_macros!(false);
 
         test_bijection_eq(Point { x: 0, y: 0 }, PointEnum::Zero);
         test_bijection_eq(Point { x: 1, y: 1 }, PointEnum::OneOne);
