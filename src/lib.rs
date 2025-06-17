@@ -104,7 +104,7 @@
 /// ## Bijection branches
 /// The bijection branches are structured to look like `match` branches, but unlike the latter,
 /// or-patterns (or any ambiguous patterns) are disallowed.
-/// ```rust
+/// ```rust,compile_fail
 /// # use biject::bijection;
 /// # #[derive(Debug, PartialEq, Clone)]
 /// # struct Foo(i32);
