@@ -329,10 +329,6 @@ macro_rules! bijection {
     ($($unknown:tt)*) => {
         compile_error!("Expected: TypeA, TypeB, { /* bijection patterns */ }");
     };
-
-    () => {
-        compile_error!("Missing types");
-    };
 }
 
 #[cfg(test)]
@@ -373,13 +369,15 @@ mod tests {
 
                 // Can be used within functions
                 bijection!(Foo, Bar, {
-                Foo::A => Bar::X,
-                Foo::B => Bar::Y,
-            });
+                    Foo::A => Bar::X,
+                    Foo::B => Bar::Y,
+                });
             }
         }
     }
 
+    /// Asserts equality in both directions,
+    /// and that `T` and `U` both implement `From`/`Into` for one another.
     fn test_bijection_eq<T, U>(t: T, u: U)
     where
         T: From<U> + PartialEq + Debug + Clone,
@@ -499,7 +497,7 @@ mod tests {
         #[derive(Debug, PartialEq, Clone)]
         struct Bar(i32);
 
-        // This should complain with a warning!
+        // This should complain with a warning! (hence the deny attribute)
         #[deny(unfulfilled_lint_expectations)]
         #[expect(unreachable_patterns)]
         {
@@ -523,7 +521,7 @@ mod tests {
     }
 
     #[test]
-    fn non_local_type() {
+    fn external_type() {
         #[derive(Debug, PartialEq, Clone)]
         enum Tristate {
             Neutral,
