@@ -242,4 +242,57 @@ mod tests {
         test_bijection_eq(Point { x: 5, y: 10 }, PointEnum::Other { x: 5, y: 10 });
         test_bijection_eq(Point { x: 20, y: -20 }, PointEnum::Other { x: 20, y: -20 });
     }
+
+    #[test]
+    fn not_really_bijective() {
+        #[derive(Debug, PartialEq, Clone)]
+        struct Foo(i32);
+
+        #[derive(Debug, PartialEq, Clone)]
+        struct Bar(i32);
+
+        // This should complain with a warning!
+        #[deny(unfulfilled_lint_expectations)]
+        #[expect(unreachable_patterns)]
+        {
+            bijection!(Foo, Bar, {
+                Foo(0) => Bar(0),
+                Foo(1) => Bar(0),
+                Foo(2) => Bar(0),
+                Foo(x) => Bar(x),
+            });
+        }
+
+        assert_eq!(Bar::from(Foo(0)), Bar(0));
+        assert_eq!(Foo::from(Bar(0)), Foo(0));
+
+        assert_eq!(Bar::from(Foo(1)), Bar(0));
+        assert_ne!(Foo::from(Bar(1)), Foo(0));
+
+        assert_eq!(Bar::from(Foo(2)), Bar(0));
+        assert_ne!(Foo::from(Bar(2)), Foo(0));
+
+        assert_eq!(Bar::from(Foo(3)), Bar(3));
+        assert_eq!(Foo::from(Bar(3)), Foo(3));
+    }
+
+    #[test]
+    fn non_local_type() {
+        #[derive(Debug, PartialEq, Clone)]
+        enum Tristate {
+            Neutral,
+            Positive,
+            Negative,
+        }
+
+        bijection!(Option<bool>, Tristate, {
+            None => Tristate::Neutral,
+            Some(true) => Tristate::Positive,
+            Some(false) => Tristate::Negative,
+        });
+
+        test_bijection_eq(Tristate::Neutral, None::<bool>);
+        test_bijection_eq(Tristate::Positive, Some(true));
+        test_bijection_eq(Tristate::Negative, Some(false));
+    }
 }
