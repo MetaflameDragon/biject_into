@@ -510,6 +510,8 @@ mod tests {
     // TODO: Make it fail on inner or-patterns (which makes it behave like a bitwise or!!!)
     // Example Foo(2 | 3) => Bar(1),
 
+    // TODO: Compiler error tests
+
     // // Used for testing compiler errors etc.
     // #[test]
     // fn playground() {
