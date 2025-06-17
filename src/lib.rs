@@ -1,3 +1,39 @@
+/// Generates `From` impls for any two types, providing conversions between them.
+/// This is effectively a shorthand for creating two duplicate `match` statements
+/// with the sides swapped.
+///
+/// This is especially useful for quickly mapping between two enums,
+/// but this works for any two types and any patterns.
+///
+/// Example:
+/// ```rust
+/// use biject::bijection;
+///
+/// #[derive(Debug, PartialEq, Clone)]
+/// struct Point {
+///     x: i32,
+///     y: i32,
+/// }
+///
+/// #[derive(Debug, PartialEq, Clone)]
+/// enum PointEnum {
+///     Zero,
+///     OneOne,
+///     Other { x: i32, y: i32 },
+/// }
+///
+/// bijection!(Point, PointEnum, {
+///             Point { x: 0, y: 0 } => PointEnum::Zero,
+///             Point { x: 1, y: 1 } => PointEnum::OneOne,
+///             Point { x, y } => PointEnum::Other { x, y },
+///         });
+///
+/// assert_eq!(PointEnum::from(Point { x: 0, y: 0 }), PointEnum::Zero);
+/// assert_eq!(PointEnum::from(Point { x: 1, y: 1 }), PointEnum::OneOne);
+/// assert_eq!(PointEnum::from(Point { x: 5, y: 10 }), PointEnum::Other { x: 5, y: 10 });
+/// assert_eq!(PointEnum::from(Point { x: 20, y: -20 }), PointEnum::Other { x: 20, y: -20 });
+/// ```
+#[macro_export]
 macro_rules! bijection {
     // Final construction of the From impls
     (@
