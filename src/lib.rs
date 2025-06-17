@@ -124,6 +124,129 @@ macro_rules! bijection {
             ()
         )
     };
+
+    // ===== Invalid patterns for better compiler errors =====
+
+    // Notes:
+    // - Using the matched type tokens somehow helps with highlighting (at least in RustRover).
+    //   This is done via loose `let` declarations.
+    // - Similarly for other tokens
+
+    // Internal macro errors
+
+    // Invalid bijection match statements (e.g. Foo::A = Bar::X)
+    (@
+    ($first_ty:ty, $second_ty:ty)
+        { $($first_done:tt)* }
+        { $($second_done:tt)* }
+        ($($first_rest:tt )*)
+        ($($second_rest:tt)*)
+    ) => {
+        {
+            let _: $first_ty;
+            let _: $second_ty;
+            // This match statement might produce a better (native) compiler error message
+            // Example: `Foo::A = Bar::X` will make it complain about needing `=>` instead
+            // The #allow suppresses an unnecessary lint
+            #[allow(unreachable_code)]
+            match unreachable!() {
+                $($first_rest)*
+            };
+            compile_error!(concat!("Invalid bijection pattern:\n", stringify!($($first_rest)*)));
+        }
+    };
+
+    // Fallback
+    (@ $($unknown:tt)*) => {
+        {
+            // Uncomment stringify and comment out the compiler error for debugging
+            // const _: &str = concat!($(stringify!($unknown)),*);
+            compile_error!("Uncaught internal macro error");
+        }
+    };
+
+    // Incorrect syntax
+
+    // Ex: bijection!(Foo, Bar)
+    ($first_ty:ty, $second_ty:ty $(,)?) => {
+        {
+            let _: $first_ty;
+            let _: $second_ty;
+            compile_error!("Missing bijection declaration block after types");
+        }
+    };
+
+    // Ex: bijection!(Foo, Bar {})
+    ($first_ty:ty, $second_ty:tt $bij:block) => {
+        {
+            let _: $first_ty;
+            let _: $second_ty;
+            compile_error!("Bijection declaration block must be separated with a comma");
+        }
+    };
+
+    // Ex: bijection!(Foo, Bar, Foo::A => Bar::X)
+    ($first_ty:ty, $second_ty:tt, $($bij:tt)+) => {
+        {
+            let _: $first_ty;
+            let _: $second_ty;
+            compile_error!(
+                concat!(
+                    "Bijection declaration block expected (got: ",
+                    stringify!($($bij)+),
+                    ")"
+                )
+            );
+        }
+    };
+
+    // Same as the above without the comma
+    // Ex: bijection!(Foo, Bar Foo::A => Bar::X)
+    ($first_ty:ty, $second_ty:tt $($bij:tt)+) => {
+        {
+            let _: $first_ty;
+            let _: $second_ty;
+            compile_error!(
+                concat!(
+                    "Bijection declaration block expected (got: ",
+                    stringify!($($bij)+),
+                    ")"
+                )
+            );
+        }
+    };
+
+    // Ex: bijection!(Foo, { Foo::A => Bar::X })
+    ($first_ty:ty $(, $($bij:tt)*)?) => {
+        {
+            let _: $first_ty;
+            compile_error!("Missing second type");
+        }
+    };
+
+    // Ex: bijection!(Foo { Foo::A => Bar::X })
+    // Note: Slightly unhelpful compiler error message (will complain about `=>` in blocks)
+    ($first_ty:ty $bij:block) => {
+        {
+            let _: $first_ty;
+            compile_error!("Bijection declaration block must be separated with a comma");
+        }
+    };
+
+    // Ex: bijection!({ Foo::A => Bar::X })
+    // Catches anything contained in curly braces without the leading types
+    ({$($bij:tt)*}) => {
+        compile_error!("Missing types before declaration block");
+    };
+
+    // Fallback, catches everything else
+    ($($unknown:tt)*) => {
+        compile_error!("Expected: TypeA, TypeB, { /* bijection patterns */ }");
+    };
+
+    () => {
+        compile_error!("Missing types");
+    };
 }
 
 #[cfg(test)]
@@ -295,4 +418,21 @@ mod tests {
         test_bijection_eq(Tristate::Positive, Some(true));
         test_bijection_eq(Tristate::Negative, Some(false));
     }
+
+    // // Used for testing compiler errors etc.
+    // #[test]
+    // fn playground() {
+    //     #[derive(Debug, PartialEq, Clone)]
+    //     enum Tristate {
+    //         Neutral,
+    //         Positive,
+    //         Negative,
+    //     }
+    //
+    //     bijection!(Option<bool>, Tristate, {
+    //         None <=> Tristate::Neutral,
+    //         Some(true) => Tristate::Positive,
+    //         Some(false) => Tristate::Negative,
+    //     });
+    // }
 }
