@@ -1,63 +1,7 @@
 #![feature(trace_macros)]
 
 macro_rules! bijection {
-    ($first_ty:ty, $second_ty:ty,
-        {$($bij:tt)*}
-    ) => {
-        bijection!(@
-            ($first_ty, $second_ty)
-            {}
-            {}
-            ($($bij)*)
-            ($($bij)*)
-        )
-    };
-
-    (@
-    ($first_ty:ty, $second_ty:ty)
-        { $($first_done:tt)* }
-        { $($second_done:tt)* }
-        ($first_pat:pat_param => $first_expr:expr      , $($first_rest:tt )*)
-        ($second_expr:expr    => $second_pat:pat_param , $($second_rest:tt)*)
-    ) => {
-        bijection!(@
-            ($first_ty, $second_ty)
-            {
-                $($first_done)*
-                $first_pat => $first_expr,
-            }
-            {
-                $($second_done)*
-                $second_pat => $second_expr,
-            }
-            ($($first_rest)*)
-            ($($second_rest)*)
-        )
-    };
-
-    (@
-    ($first_ty:ty, $second_ty:ty)
-        { $($first_done:tt)* }
-        { $($second_done:tt)* }
-        ($first_pat:pat_param => $first_expr:expr      $(,)?)
-        ($second_expr:expr    => $second_pat:pat_param $(,)?)
-    ) => {
-        bijection!(@
-            ($first_ty, $second_ty)
-            {
-                $($first_done)*
-                $first_pat => $first_expr,
-            }
-            {
-                $($second_done)*
-                $second_pat => $second_expr,
-            }
-            ()
-            ()
-        )
-    };
-
-
+    // Final construction of the From impls
     (@
     ($first_ty:ty, $second_ty:ty)
         { $($first_done:tt)* }
@@ -85,19 +29,127 @@ macro_rules! bijection {
             ()
         }
     };
+
+    // Entry
+    ($first_ty:ty, $second_ty:ty,
+        {$($bij:tt)*}
+    ) => {
+        bijection!(@
+            ($first_ty, $second_ty)
+            {}
+            {}
+            // Double up the bijection statements for matching
+            ($($bij)*)
+            ($($bij)*)
+        )
+    };
+
+    // Normalize by munching rules sequentially
+    // This matches the initial $($bij)* with two macro patterns at once
+    (@
+    ($first_ty:ty, $second_ty:ty)
+        { $($first_done:tt)* }
+        { $($second_done:tt)* }
+        ($first_pat:pat_param => $first_expr:expr      , $($first_rest:tt )*)
+        ($second_expr:expr    => $second_pat:pat_param , $($second_rest:tt)*)
+    ) => {
+        bijection!(@
+            ($first_ty, $second_ty)
+            {
+                $($first_done)*
+                $first_pat => $first_expr,
+            }
+            {
+                $($second_done)*
+                $second_pat => $second_expr,
+            }
+            ($($first_rest)*)
+            ($($second_rest)*)
+        )
+    };
+
+    // Normalization without the trailing comma
+    (@
+    ($first_ty:ty, $second_ty:ty)
+        { $($first_done:tt)* }
+        { $($second_done:tt)* }
+        ($first_pat:pat_param => $first_expr:expr     )
+        ($second_expr:expr    => $second_pat:pat_param)
+    ) => {
+        bijection!(@
+            ($first_ty, $second_ty)
+            {
+                $($first_done)*
+                $first_pat => $first_expr,
+            }
+            {
+                $($second_done)*
+                $second_pat => $second_expr,
+            }
+            ()
+            ()
+        )
+    };
 }
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Debug;
+
     use super::*;
+
+    fn test_bijection_eq<T, U>(t: T, u: U)
+    where
+        T: From<U> + PartialEq + Debug + Clone,
+        U: From<T> + PartialEq + Debug + Clone,
+    {
+        assert_eq!(U::from(t.clone()), u.clone());
+        assert_eq!(T::from(u), t);
+    }
+
+    #[test]
+    fn empty_enum() {
+        #[derive(Debug, PartialEq, Clone)]
+        enum Foo {}
+
+        #[derive(Debug, PartialEq, Clone)]
+        enum Bar {}
+
+        trace_macros!(true);
+        bijection!(Foo, Bar, {});
+        trace_macros!(false);
+    }
+
+    #[test]
+    fn one_variant() {
+        #[derive(Debug, PartialEq, Clone)]
+        enum Foo {
+            A,
+        }
+
+        #[derive(Debug, PartialEq, Clone)]
+        enum Bar {
+            X,
+        }
+
+        trace_macros!(true);
+        bijection!(Foo, Bar, {
+            Foo::A => Bar::X,
+        });
+        trace_macros!(false);
+
+        test_bijection_eq(Foo::A, Bar::X);
+    }
 
     #[test]
     fn two_variants() {
+        #[derive(Debug, PartialEq, Clone)]
         enum Foo {
             A,
             B,
         }
 
+        #[derive(Debug, PartialEq, Clone)]
         enum Bar {
             X,
             Y,
@@ -109,5 +161,61 @@ mod tests {
             Foo::B => Bar::Y,
         });
         trace_macros!(false);
+
+        test_bijection_eq(Foo::A, Bar::X);
+        test_bijection_eq(Foo::B, Bar::Y);
+    }
+
+    #[test]
+    fn struct_point() {
+        #[derive(Debug, PartialEq, Clone)]
+        struct Point {
+            x: i32,
+            y: i32,
+        }
+
+        #[derive(Debug, PartialEq, Clone)]
+        struct PointFlipped {
+            y: i32,
+            x: i32,
+        }
+
+        trace_macros!(true);
+        bijection!(Point, PointFlipped, {
+            Point { x, y } => PointFlipped { y: x, x: y }
+        });
+        trace_macros!(false);
+
+        test_bijection_eq(Point { x: 5, y: 10 }, PointFlipped { x: 10, y: 5 });
+        test_bijection_eq(Point { x: 20, y: -20 }, PointFlipped { x: -20, y: 20 });
+    }
+
+    #[test]
+    fn struct_enum() {
+        #[derive(Debug, PartialEq, Clone)]
+        struct Point {
+            x: i32,
+            y: i32,
+        }
+
+        #[derive(Debug, PartialEq, Clone)]
+        enum PointEnum {
+            Zero,
+            OneOne,
+            Other { x: i32, y: i32 },
+        }
+
+        trace_macros!(true);
+        bijection!(Point, PointEnum, {
+            Point { x: 0, y: 0 } => PointEnum::Zero,
+            Point { x: 1, y: 1 } => PointEnum::OneOne,
+            Point { x, y } => PointEnum::Other { x, y },
+        });
+        trace_macros!(false);
+
+        test_bijection_eq(Point { x: 0, y: 0 }, PointEnum::Zero);
+        test_bijection_eq(Point { x: 1, y: 1 }, PointEnum::OneOne);
+        test_bijection_eq(Point { x: 5, y: 10 }, PointEnum::Other { x: 5, y: 10 });
+        test_bijection_eq(Point { x: 20, y: -20 }, PointEnum::Other { x: 20, y: -20 });
     }
 }
