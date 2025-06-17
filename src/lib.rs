@@ -133,24 +133,20 @@ macro_rules! bijection {
         ()
         ()
     ) => {
-        // Extra block so this can be used without a semicolon (expands to an expression)
-        {
-            impl From<$first_ty> for $second_ty {
-                fn from(value: $first_ty) -> Self {
-                    match value {
-                        $($first_done)*
-                    }
+        impl From<$first_ty> for $second_ty {
+            fn from(value: $first_ty) -> Self {
+                match value {
+                    $($first_done)*
                 }
             }
+        }
 
-            impl From<$second_ty> for $first_ty {
-                fn from(value: $second_ty) -> Self {
-                    match value {
-                        $($second_done)*
-                    }
+        impl From<$second_ty> for $first_ty {
+            fn from(value: $second_ty) -> Self {
+                match value {
+                    $($second_done)*
                 }
             }
-            ()
         }
     };
 
@@ -165,7 +161,7 @@ macro_rules! bijection {
             // Double up the bijection statements for matching
             ($($bij)*)
             ($($bij)*)
-        )
+        );
     };
 
     // Normalize by munching rules sequentially
@@ -189,7 +185,7 @@ macro_rules! bijection {
             }
             ($($first_rest)*)
             ($($second_rest)*)
-        )
+        );
     };
 
     // Normalization without the trailing comma
@@ -212,7 +208,7 @@ macro_rules! bijection {
             }
             ()
             ()
-        )
+        );
     };
 
     // ===== Invalid patterns for better compiler errors =====
@@ -344,6 +340,45 @@ mod tests {
     use std::fmt::Debug;
 
     use super::*;
+
+    mod context_usage_tests {
+        mod context_mod {
+            enum Foo {
+                A,
+                B,
+            }
+            enum Bar {
+                X,
+                Y,
+            }
+
+            // Can be used within modules
+            bijection!(Foo, Bar, {
+                Foo::A => Bar::X,
+                Foo::B => Bar::Y,
+            });
+        }
+
+        mod context_fn {
+            #[allow(dead_code)]
+            fn foo() {
+                enum Foo {
+                    A,
+                    B,
+                }
+                enum Bar {
+                    X,
+                    Y,
+                }
+
+                // Can be used within functions
+                bijection!(Foo, Bar, {
+                Foo::A => Bar::X,
+                Foo::B => Bar::Y,
+            });
+            }
+        }
+    }
 
     fn test_bijection_eq<T, U>(t: T, u: U)
     where
