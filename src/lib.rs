@@ -1,3 +1,5 @@
+#![no_std]
+
 /// Generates `From` impls for any two types, providing conversions between them.
 /// This is effectively a shorthand for creating two duplicate `match` statements
 /// with the sides swapped.
@@ -333,7 +335,7 @@ macro_rules! bijection {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::Debug;
+    use core::fmt::Debug;
 
     use super::*;
 
