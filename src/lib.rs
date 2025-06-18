@@ -22,7 +22,7 @@
 ///
 /// # Examples
 /// ```rust
-/// use biject::bijection;
+/// use biject_into::bijection;
 ///
 /// #[derive(Debug, PartialEq, Clone)]
 /// struct Point {
@@ -55,7 +55,7 @@
 /// ```
 ///
 /// ```rust
-/// use biject::bijection;
+/// use biject_into::bijection;
 /// #[derive(Debug, PartialEq, Clone)]
 /// enum Tristate {
 ///     Neutral,
@@ -83,7 +83,7 @@
 /// ## Unreachable patterns
 /// By itself, the macro does not enforce bijection
 /// ```rust
-/// # use biject::bijection;
+/// # use biject_into::bijection;
 /// # #[derive(Debug, PartialEq, Clone)]
 /// # struct Foo(i32);
 ///
@@ -107,7 +107,7 @@
 /// The bijection branches are structured to look like `match` branches, but unlike the latter,
 /// or-patterns (or any ambiguous patterns) are disallowed.
 /// ```rust,compile_fail
-/// # use biject::bijection;
+/// # use biject_into::bijection;
 /// # #[derive(Debug, PartialEq, Clone)]
 /// # struct Foo(i32);
 ///
